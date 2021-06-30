@@ -1,0 +1,22 @@
+# 필요한 라이브러리 import
+import tensorflow as tf
+import numpy as np
+from tensorflow.keras.models import Sequential 
+from tensorflow.keras.layers import Dense
+
+xs = np.array([-1.0, 0.0, 1.0, 2.0, 3.0, 4.0], dtype=float)
+ys = np.array([5.0, 6.0, 7.0, 8.0, 9.0, 10.0], dtype=float)
+
+# 모델 정의
+model = Sequential([
+        Dense(1, input_shape = [1])
+])
+
+# 컴파일
+model.compile(optimizer = 'sgd', loss = 'mse')
+
+# 학습
+model.fit(xs, ys, epochs = 1200, verbose = 0)
+
+# 예측
+model.predict([10.0])
