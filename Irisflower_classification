@@ -1,0 +1,50 @@
+import tensorflow as tf
+import numpy as np
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.models import Sequential
+import tensorflow_datasets as tfds
+
+import numpy as np
+import tensorflow as tf
+import tensorflow_datasets as tfds
+from tensorflow.keras.callbacks import ModelCheckpoint
+
+train_dataset = tfds.load('iris', split = 'train[:80%]')
+valid_dataset = tfds.load('iris', split = 'train[80%:]')
+
+# 전처리: x(feature) / y(label) 구분, 원핫 인코딩
+def preprocess(data):
+  x = data['features']
+  y = data['label']
+  y = tf.one_hot(y, 3) # y를 3개의 분류로 원핫인코딩
+  return x, y
+# 전처리 적용
+batch_size = 10
+train_data = train_dataset.map(preprocess).batch(batch_size)
+valid_data = valid_dataset.map(preprocess).batch(batch_size)
+
+model = Sequential([
+    Dense(1024, input_shape = (4, )),
+    Dense(512, activation = 'relu'),
+    Dense(256, activation = 'relu'),
+    Dense(128, activation = 'relu'),
+    Dense(64, activation = 'relu'),
+    Dense(32, activation = 'relu'),
+    Dense(3, activation = 'softmax')  
+])
+model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = ['acc'])
+
+checkpoint_path = "my_checkpoint.ckpt"
+checkpoint = ModelCheckpoint(filepath = checkpoint_path, monitor = 'val_loss', verbose = 1, save_weights_only = True, save_best_only = True)
+
+history = model.fit(train_data, validation_data = (valid_data), verbose = 1, epochs = 20, callbacks = [checkpoint],)
+
+import matplotlib.pyplot as plt
+plt.figure(figsize = (12,9))
+plt.plot(np.arange(1, 21), history.history['loss'])
+plt.plot(np.arange(1, 21), history.history['val_loss'])
+plt.title('Loss / Val Loss', fontsize=20)
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend(['loss', 'val_loss'], fontsize=15)
+plt.show()
