@@ -1,0 +1,98 @@
+# import
+import numpy as np
+import tensorflow as tf
+
+from tensorflow.keras.layers import Dense, Flatten, Conv2D, MaxPooling2D, Dropout
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+import urllib.request
+import zipfile
+from IPython.display import Image
+
+# Load Dataset
+url = 'https://storage.googleapis.com/download.tensorflow.org/data/rps.zip'
+urllib.request.urlretrieve(url, 'rps.zip')
+local_zip = 'rps.zip'
+zip_ref = zipfile.ZipFile(local_zip, 'r')
+zip_ref.extractall('tmp/')
+zip_ref.close()
+
+# 이미지 데이터 전처리
+# 데이터셋 경로지정
+TRAINING_DIR = "tmp/rps/"
+
+training_datagen = ImageDataGenerator(
+    rescale = 1 / 255,
+    rotation_range = 40,
+    width_shift_range = 0.2,
+    horizontal_flip = True,
+    fill_mode = 'nearest',
+    validation_split = 0.2
+)
+
+# training / validation dataset 만들기
+training_generator = training_datagen.flow_from_directory(
+    TRAINING_DIR, batch_size = 128, target_size = (150, 150), class_mode = 'categorical', subset = 'training'
+)
+
+validation_generator = training_datagen.flow_from_directory(
+    TRAINING_DIR, batch_size = 128, target_size = (150, 150), class_mode = 'categorical', subset = 'validation'
+)
+
+# 모델링
+model = Sequential([
+    # Conv2D, MaxPooling2D 조합으로 층을 쌓습니다. 첫번째 입력층의 input_shape은 (150, 150, 3)으로 지정합니다.
+    Conv2D(64, (3,3), activation = 'relu', input_shape = (150, 150, 3)),
+    MaxPooling2D(2, 2),
+    Conv2D(64, (3,3), activation = 'relu'),
+    MaxPooling2D(2,2),
+    Conv2D(128, (3,3), activation = 'relu'),
+    MaxPooling2D(2,2),
+    Conv2D(128, (3,3), activation = 'relu'),
+    MaxPooling2D(2,2),
+
+
+
+    # 2D -> 1D로 변환을 위하여 Flatten 합니다.
+    Flatten(),
+
+
+    # 과적합 방지를 위하여 Dropout을 적용합니다.
+    Dropout(0.5),
+
+    # Dense
+    Dense(512, activation = 'relu'),
+    Dense(3, activation = 'softmax')
+
+    # Classification을 위한 Softmax 
+    # 출력층의 갯수는 클래스의 갯수와 동일하게 맞춰줍니다 (3개), activation도 잊지마세요!
+
+])
+
+# 컴파일
+model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = ['acc'])
+
+# Model CheckPoint
+file_path = ' "tmp_checkpoint.ckpt"'
+checkpoint = ModelCheckpoint(file_path, monitor = 'val_loss',
+                              verbose = 1, save_best_only = True, save_weights_only = True)
+
+# 학습
+history = model.fit(training_generator, validation_data = validation_generator,
+                    verbose = 1, callbacks = [checkpoint], epochs = 25)
+
+# 학습 완료 후 Load weights
+model.load_weights(file_path)
+
+# loss 그래프 그리기
+import matplotlib.pypylot as plt
+plt.figure(figsize = (12, 9))
+plt.plot(np.arange(1, 26), history.history['acc'])
+plt.plot(np.arange(1, 26), history.history['loss'])
+plt.title('Acc / Loss', fontsize=20)
+plt.xlabel('Epochs')
+plt.ylabel('Acc / Loss')
+plt.legend(['acc', 'loss'], fontsize=15)
+plt.show()
