@@ -1,0 +1,52 @@
+# import
+import tensorflow_datasets as tfds
+import tensorflow as tf
+
+from tensorflow.keras.layers import Flatten, Dropout, Conv2D, MaxPooling2D, Dense
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.callbacks import ModelCheckpoint
+
+# Load Dataset
+dataset_name = 'cats_vs_dogs'
+
+# 데이터셋 분할
+train_dataset = tfds.load(name = dataset_name, split = 'train[:80%]')
+valid_dataset = tfds.load(name = dataset_name, split = 'train[80%:]')
+
+# 이미지 전처리
+for data in train_dataset.take(3):
+  x = data['image'] / 255.0
+  y = data['label'] / 255.0
+  x = tf.image.resize(x, size = (224, 224))
+  print(data)
+
+# 전처리 함수 정의
+def preprocess(data):
+  x = data['image']
+  x = x / 255
+  y = data['label'] # label은 255.0으로 나누면 안되지 바보야
+  x = tf.image.resize(x, size = (224, 224))
+  return x, y
+# 전처리 함수를 dataset에 mapping하고 batch_size도 지정
+batch_size = 32
+
+train_data = train_dataset.map(preprocess).batch(batch_size)
+valid_data = valid_dataset.map(preprocess).batch(batch_size)
+
+# 전이학습으로 밑에 layer만 모델링
+model = Sequential([
+                    transfer_model,
+                    Flatten(),
+                    Dropout(0.5),
+                    Dense(512, activation = 'relu'),
+                    Dense(128, activation = 'relu'),
+                    Dense(2, activation = 'relu'),
+])
+
+# 컴파일
+model.compile(loss = 'sparse_categorical_crossentropy',optimizer = 'adam', metrics = ['acc'])
+
+# Model Checkpoint 생성
+checkpoint_path = 'my_checkpoint.ckpt'
+checkpoint = ModelCheckpoint(filepath = checkpoint_path, monitor = 'val_loss', save_weights_only = True, save_best_only = True, verbose = 1)
+
