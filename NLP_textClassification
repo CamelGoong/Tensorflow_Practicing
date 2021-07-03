@@ -1,0 +1,103 @@
+# import
+import tensorflow as tf
+import numpy
+import json
+import urllib
+
+
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.layers import Embedding, LSTM, Dense, Bidirectional, Flatten
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.callbacks import ModelCheckpoint
+
+# 필요한 데이터셋 다운로드
+url = 'https://storage.googleapis.com/download.tensorflow.org/data/sarcasm.json'
+urllib.request.urlretrieve(url, 'sarcasm.json')
+
+# Json 파일 로드
+with open('sarcasm.json') as f:
+  datas = json.load(f)
+
+datas[:5]
+
+# 전처리: 데이터셋 구성
+sentences = []
+labels = []
+
+for data in datas:
+  sentences.append(data['headline'])
+  labels.append(data['is_sarcastic'])
+
+# 데이터셋 분리
+training_size = 20000
+train_sentences = sentences[:20000]
+train_labels = labels[:20000]
+
+validation_sentences = sentences[20000:]
+validation_labels = labels[20000:]
+
+# Step1. Tokenizer 정의
+vocab_size = 1000 # 단어의 max 사이즈 지정해서 Top 1000의 단어만 저장
+oov_token = '<OOV>'
+tokenizer = Tokenizer(num_words = vocab_size, oov_token = '<OOV>')
+
+# Step2. Tokenizer로 학습시킬 문장에 대한 토큰화 진행
+tokenizer.fit_on_texts(train_sentences)
+
+# 토큰화된 단어 확인
+for key, value in tokenizer.word_index.items():
+  print('{}  \t======>\t {}'.format(key, value))
+  if value == 25:
+    break
+
+# Step3. 문장을 토큰으로 변경(치환)
+train_sequences = tokenizer.texts_to_sequences(train_sentences)
+validation_sequences = tokenizer.texts_to_sequences(validation_sentences)
+
+# Step4. 시퀀스의 길이 맞춰주기
+max_length = 120
+padding_type = 'post'
+trunc_type = 'post'
+
+train_padded = pad_sequences(train_sequences, maxlen = max_length, padding = padding_type, truncating = trunc_type)
+validation_padded = pad_sequences(validation_sequences, maxlen = max_length, padding = padding_type, truncating = trunc_type)
+
+# Step5. label 값을 numpy array로 변환
+import numpy as np
+train_labels = np.array(train_labels)
+validation_labels = np.array(validation_labels)
+
+# Embedding Layer
+embedding_dim = 16 # 16차원으로 차원축소할 예정 -> 구체적인 Embedding layer의 실행은 modeling하는 과정에서 함.
+
+# 모델링
+model = Sequential([
+                    Embedding(vocab_size, embedding_dim, input_length=max_length),
+                    Bidirectional(LSTM(64, return_sequences = True)),
+                    Bidirectional(LSTM(64)),
+                    Dense(32, activation = 'relu'),
+                    Dense(16, activation = 'relu'),
+                    Dense(1, activation = 'sigmoid'),
+                    ])
+                    
+# 컴파일
+model.compile(optimizer = 'adam', loss = 'binary_crossentropy', metrics = ['acc'])
+
+# ModelCheckpoint 생성
+checkpoint_path = 'my_checkpoint.ckpt'
+checkpoint = ModelCheckpoint(filepath = checkpoint_path, monitor = 'val_loss', verbose = 1, save_best_only = True, save_weights_only = True)
+
+# 학습 완료후 Load Weights
+model.load_weights(checkpoint_path)
+
+# 학습 오차에 대한 시각화
+import matplotlib.pyplot as plt
+plt.figure(figsize=(12, 9))
+plt.plot(np.arange(1, 11), history.history['loss'])
+plt.plot(np.arange(1, 11), history.history['val_loss'])
+plt.xlabel('epochs')
+plt.ylabel('loss')
+plt.title('loss vs val_loss')
+plt.legend(['loss', 'val_loss'], fontsize = 15)
+plt.show()
