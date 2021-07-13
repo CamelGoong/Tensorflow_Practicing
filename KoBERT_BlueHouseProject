@@ -2,7 +2,6 @@
 !pip install transformers
 
 import torch
-
 from transformers import BertTokenizer
 from transformers import BertForSequenceClassification, AdamW, BertConfig
 from transformers import get_linear_schedule_with_warmup
